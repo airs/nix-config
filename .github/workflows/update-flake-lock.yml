@@ -60,7 +60,9 @@ jobs:
 
             if [ "$old" != "$rev" ]; then
               nix flake lock --override-input "$name" "github:$owner/$repo/$rev"
-              echo "- \`$name\`: \`${old:0:7}\` → \`${rev:0:7}\`（$date）" >> "$summary"
+              # ${date} の brace は省略不可: macos の bash 3.2 は brace 無しだと
+              # 直後の全角「）」の先頭バイトまで変数名に取り込み、文字化けする。
+              echo "- \`$name\`: \`${old:0:7}\` → \`${rev:0:7}\`（${date%%T*}）" >> "$summary"
             fi
           done
 
