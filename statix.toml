@@ -1,0 +1,4 @@
+# dotted notation（programs.git / home-manager.* など）は home-manager / nix-darwin の
+# 意図的・慣用的な記法なので repeated_keys は無効化する。
+disabled = ["repeated_keys"]
+ignore = [".direnv"]
