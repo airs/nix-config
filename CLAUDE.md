@@ -14,7 +14,7 @@ airs 標準の macOS（aarch64-darwin）環境を **nix-darwin + home-manager �
     /run/current-system/sw/bin/darwin-rebuild build --flake .#<ユーザー名>
   ```
   生成された設定値の確認は `nix eval --raw .#darwinConfigurations.<ユーザー名>.config.<path>` が使える。
-- **lint / format（編集後・sudo 不要）**: `nix fmt`（nixfmt で整形）/ `nix flake check`（nixfmt・statix・deadnix を検証、CI と同一）/ `nix develop`（ツール入り開発シェル）。
+- **lint / format（編集後・sudo 不要）**: `nix fmt`（nixfmt で整形）/ `nix flake check`（nixfmt・statix・deadnix を検証、CI の checks ジョブと同一）/ `nix develop`（ツール入り開発シェル）。
 - **適用（switch）は Claude のセッションから実行しない**。sudo パスワードが必要なうえ、`cleanup = "uninstall"` により宣言外の cask が消えるため、build までで止めてユーザーに依頼する。
 - setup.sh を編集したら `bash -n setup.sh` と shellcheck（`nix run nixpkgs#shellcheck -- setup.sh`）を通す。
 
@@ -32,7 +32,7 @@ airs 標準の macOS（aarch64-darwin）環境を **nix-darwin + home-manager �
 | `darwin/base.nix` | 会社標準の system 層: system/nix 設定・nix-homebrew（Homebrew 本体）・`homebrew.casks` |
 | `home/base.nix` | 会社標準の home 層: `home.packages`（CLI）・`programs.git`（中立設定のみ）・`programs.gh` |
 | `setup.sh` | 単体適用のキッティング（Nix 導入〜初回 switch、冪等）。`~/.zshrc.local` の雛形生成もここ |
-| `.github/workflows/ci.yml` | push / PR 時に Linux で `nix flake check`。darwin の実ビルドは CI 対象外 |
+| `.github/workflows/ci.yml` | push / PR 時に `nix flake check`（Linux）と全 `darwinConfigurations` の実ビルド（macOS、switch なし） |
 | `statix.toml` | dotted notation は意図的なので `repeated_keys` を無効化 |
 
 **ツールをどこで管理するかの原則**:

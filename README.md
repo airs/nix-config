@@ -129,7 +129,7 @@ export NIX_CONFIG_ATTR="<ユーザー名>"
 
 ## 開発（lint / format）
 
-`.nix` の整形・静的解析は flake の output として提供する。GitHub Actions（[`.github/workflows/ci.yml`](./.github/workflows/ci.yml)）が push / PR 時に `nix flake check` を Linux で実行する（darwin の実ビルドは CI 対象外でローカル switch に委ねる）。
+`.nix` の整形・静的解析は flake の output として提供する。GitHub Actions（[`.github/workflows/ci.yml`](./.github/workflows/ci.yml)）が push / PR 時に `nix flake check`（Linux）と全 `darwinConfigurations` の実ビルド（macOS、switch なし）を実行する。
 
 ```sh
 nix fmt            # nixfmt で整形（formatter = nixfmt-tree）

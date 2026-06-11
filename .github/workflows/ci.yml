@@ -25,3 +25,25 @@ jobs:
 
       - name: nix flake check
         run: nix flake check --no-update-lock-file --print-build-logs
+
+  build-darwin:
+    name: darwin build (macos)
+    # macos-latest は arm64 = aarch64-darwin（適用先と同一 system）
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+        with:
+          # flake input 解決で GitHub レート制限(403)を踏まないため
+          # GITHUB_TOKEN を nix の access-tokens に渡す。
+          extra-conf: |
+            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+
+      # darwinConfigurations の全エントリを動的に列挙してビルドする
+      # （エントリが増えても自動で追従。switch はせず system derivation の検証まで）。
+      - name: Build all darwinConfigurations
+        run: |
+          nix eval .#darwinConfigurations --apply builtins.attrNames --json | jq -r '.[]' \
+            | xargs -I{} nix build ".#darwinConfigurations.{}.system" --print-build-logs
