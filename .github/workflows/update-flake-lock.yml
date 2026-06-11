@@ -81,6 +81,25 @@ jobs:
           nix eval .#darwinConfigurations --apply builtins.attrNames --json | jq -r '.[]' \
             | xargs -I{} nix build ".#darwinConfigurations.{}.system" --print-build-logs
 
+      # マージ判断の材料として、NixOS 公式アナウンスの直近 7 日分を PR 本文に貼る
+      # （重大セキュリティ事案は Announcements に Security Advisory として載る）。
+      # Discourse 障害で更新 PR 自体を止めないよう、取得失敗は本文への注記に留める。
+      - name: Fetch recent NixOS announcements
+        id: announcements
+        shell: bash
+        run: |
+          list=$(curl -sf "https://discourse.nixos.org/c/announcements/8.json" \
+            | jq -r '.topic_list.topics[]
+                | select(.created_at > (now - 7*86400 | todate))
+                | "- \(.created_at[:10]) [\(.title)](https://discourse.nixos.org/t/\(.slug)/\(.id))"') \
+            || list="（取得失敗。 https://discourse.nixos.org/c/announcements/8 を直接確認すること）"
+          [ -n "$list" ] || list="（直近 7 日の投稿なし）"
+          {
+            echo 'list<<ANNOUNCEMENTS_EOF'
+            echo "$list"
+            echo 'ANNOUNCEMENTS_EOF'
+          } >> "$GITHUB_OUTPUT"
+
       # 差分が無い場合は PR を作成せず正常終了する。
       - name: Create pull request
         uses: peter-evans/create-pull-request@v7
@@ -98,6 +117,10 @@ jobs:
             ${{ steps.update.outputs.summary }}
 
             この workflow run で lint（`nix flake check`）と全 `darwinConfigurations` の darwin ビルドを検証済み: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            #### 直近 7 日の NixOS Announcements（マージ前にセキュリティ事案が無いか確認すること）
+
+            ${{ steps.announcements.outputs.list }}
 
             （GITHUB_TOKEN が作成した PR には CI が走らないため、チェック欄は空のままになる）
           labels: dependencies
