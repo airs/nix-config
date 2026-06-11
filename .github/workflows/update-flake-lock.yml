@@ -1,0 +1,101 @@
+name: Update flake.lock
+
+# flake.lock を週次で自動更新し、検証済みの PR を作成する（マージは手動）。
+#
+# GITHUB_TOKEN が作成した PR には on:pull_request の CI が走らない
+# （GitHub の無限ループ防止仕様）ため、PR 作成前にこの workflow 内で
+# CI と同等の検証（nix flake check ＋ 全 darwinConfigurations のビルド）を行う。
+
+on:
+  schedule:
+    - cron: '0 22 * * 0' # 月曜 7:00 JST（UTC 日曜 22:00）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    name: update / verify / create PR
+    # 適用先と同一 system（aarch64-darwin）で検証するため macos ランナーを使う。
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+        with:
+          # flake input 解決で GitHub レート制限(403)を踏まないため
+          # GITHUB_TOKEN を nix の access-tokens に渡す。
+          extra-conf: |
+            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+
+      # 各 input を「3 日前時点の先端 rev」に固定する（クールダウン）。
+      # 最新 rev を直接取らないのは、出たばかりの破壊的変更・未検出の問題を
+      # 全社展開前に枯らすため。input 一覧は flake.lock から動的に列挙する
+      # （--override-input は locked.rev のみ更新し original は保持するので、
+      # 次回実行でも original の owner/repo/ref をそのまま参照できる）。
+      - name: Update flake.lock (3-day cooldown)
+        id: update
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cutoff=$(date -u -v-3d '+%Y-%m-%dT%H:%M:%SZ')
+          summary="$RUNNER_TEMP/update-summary.md"
+          : > "$summary"
+
+          for name in $(jq -r '.nodes.root.inputs | keys[]' flake.lock); do
+            node=$(jq -r --arg n "$name" '.nodes.root.inputs[$n]' flake.lock)
+            old=$(jq -r --arg node "$node" '.nodes[$node].locked.rev' flake.lock)
+            read -r owner repo ref < <(jq -r --arg node "$node" \
+              '.nodes[$node].original | "\(.owner) \(.repo) \(.ref // "")"' flake.lock)
+
+            # sha を省略すると GitHub API はデフォルトブランチを参照する（ref 無し input 用）
+            read -r rev date < <(gh api \
+              "repos/$owner/$repo/commits?per_page=1&until=${cutoff}${ref:+&sha=$ref}" \
+              --jq '.[0] | "\(.sha) \(.commit.committer.date)"')
+            test -n "$rev"
+
+            if [ "$old" != "$rev" ]; then
+              nix flake lock --override-input "$name" "github:$owner/$repo/$rev"
+              echo "- \`$name\`: \`${old:0:7}\` → \`${rev:0:7}\`（$date）" >> "$summary"
+            fi
+          done
+
+          {
+            echo 'summary<<SUMMARY_EOF'
+            cat "$summary"
+            echo 'SUMMARY_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: nix flake check
+        run: nix flake check --no-update-lock-file --print-build-logs
+
+      # ci.yml の build-darwin と同じ検証。全エントリを動的に列挙してビルドする。
+      - name: Build all darwinConfigurations
+        run: |
+          nix eval .#darwinConfigurations --apply builtins.attrNames --json | jq -r '.[]' \
+            | xargs -I{} nix build ".#darwinConfigurations.{}.system" --print-build-logs
+
+      # 差分が無い場合は PR を作成せず正常終了する。
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: update-flake-lock
+          delete-branch: true
+          title: flake.lock を更新
+          commit-message: |
+            flake.lock を更新
+
+            週次の自動更新。各 input を 3 日前時点の先端 rev に固定（クールダウン）。
+          body: |
+            flake.lock の週次自動更新 PR。各 input を 3 日前時点の先端 rev に固定している（クールダウン）。
+
+            ${{ steps.update.outputs.summary }}
+
+            この workflow run で lint（`nix flake check`）と全 `darwinConfigurations` の darwin ビルドを検証済み: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            （GITHUB_TOKEN が作成した PR には CI が走らないため、チェック欄は空のままになる）
+          labels: dependencies

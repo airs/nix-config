@@ -131,6 +131,8 @@ export NIX_CONFIG_ATTR="<ユーザー名>"
 
 `.nix` の整形・静的解析は flake の output として提供する。GitHub Actions（[`.github/workflows/ci.yml`](./.github/workflows/ci.yml)）が push / PR 時に `nix flake check`（Linux）と全 `darwinConfigurations` の実ビルド（macOS、switch なし）を実行する。
 
+flake.lock は [`.github/workflows/update-flake-lock.yml`](./.github/workflows/update-flake-lock.yml) が週 1（月曜朝 JST）で自動更新の PR を作成する（マージは手動）。各 input は最新ではなく **3 日前時点の先端 rev** に固定し（クールダウン）、PR 作成前に workflow 内で lint と darwin ビルドを検証する。GitHub の仕様で自動作成 PR には CI が走らないため PR のチェック欄は空になるが、本文の workflow run リンクが検証結果を指す。
+
 ```sh
 nix fmt            # nixfmt で整形（formatter = nixfmt-tree）
 nix flake check    # nixfmt(--check) / statix / deadnix をまとめて検証（CI と同一）

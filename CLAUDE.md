@@ -33,6 +33,7 @@ airs 標準の macOS（aarch64-darwin）環境を **nix-darwin + home-manager �
 | `home/base.nix` | 会社標準の home 層: `home.packages`（CLI）・`programs.git`（中立設定のみ）・`programs.gh` |
 | `setup.sh` | 単体適用のキッティング（Nix 導入〜初回 switch、冪等）。`~/.zshrc.local` の雛形生成もここ |
 | `.github/workflows/ci.yml` | push / PR 時に `nix flake check`（Linux）と全 `darwinConfigurations` の実ビルド（macOS、switch なし） |
+| `.github/workflows/update-flake-lock.yml` | 週 1（月曜朝 JST）で flake.lock を更新し PR を作成（マージは手動）。各 input は 3 日前時点の先端 rev に固定（クールダウン）。GITHUB_TOKEN 製 PR には CI が走らないため、PR 作成前に workflow 内で lint＋darwin ビルドを検証する |
 | `statix.toml` | dotted notation は意図的なので `repeated_keys` を無効化 |
 
 **ツールをどこで管理するかの原則**:
