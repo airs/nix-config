@@ -8,7 +8,7 @@ name: Update flake.lock
 
 on:
   schedule:
-    - cron: '0 22 * * 0' # 月曜 7:00 JST（UTC 日曜 22:00）
+    - cron: '0 0 * * 1' # 月曜 9:00 JST（UTC 月曜 0:00）
   workflow_dispatch:
 
 permissions:
