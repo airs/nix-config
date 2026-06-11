@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: nix flake check (linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+        with:
+          # flake input 解決で GitHub レート制限(403)を踏まないため
+          # GITHUB_TOKEN を nix の access-tokens に渡す。
+          extra-conf: |
+            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+
+      - name: nix flake check
+        run: nix flake check --no-update-lock-file --print-build-logs
